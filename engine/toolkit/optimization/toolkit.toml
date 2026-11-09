@@ -1,0 +1,5 @@
+# Optional optimization toolkit. Its CMakeLists finds or fetches OSQP, and the backend
+# explicitly registers `optimization::register_optimization` when it links this package.
+name = "optimization"
+optional = true
+register = ["register_optimization"]

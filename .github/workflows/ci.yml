@@ -1,0 +1,38 @@
+name: ci
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+jobs:
+  build:
+    name: Build optimization toolkit against paperboat
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: paperboatlab/paperboat
+          ref: dev
+          path: paperboat
+      - name: Overlay the toolkit
+        run: cp -r engine/toolkit/optimization paperboat/engine/toolkit/optimization
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ninja-build cmake g++
+      - name: Configure
+        run: cmake -S paperboat/engine -B paperboat/engine/build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DPAPERBOAT_BUILD_TESTS=ON
+      - name: Build
+        run: cmake --build paperboat/engine/build
+      - name: Test
+        run: ctest --test-dir paperboat/engine/build --output-on-failure
+
+  validate:
+    name: Validate toolkit files
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check toolkit.toml parses
+        run: python3 -c "import tomllib; tomllib.load(open('engine/toolkit/optimization/toolkit.toml','rb')); print('toolkit.toml OK')"
+      - name: Check the public header is present
+        run: test -f engine/toolkit/optimization/include/paperboat/toolkit/optimization.hpp && echo OK
