@@ -1,9 +1,11 @@
 #pragma once
 
-// Private to the optimization toolkit: the block both templates use. The public problem,
-// result and workspace API is in paperboat/toolkit/optimization.hpp.
+// Shared by the qp and lp blocks: the Step both solve with, and the template they differ in only
+// by type, label and description.
 
+#include <memory>
 #include <string>
+#include <utility>
 
 #include "paperboat/toolkit/block.hpp"
 #include "paperboat/toolkit/optimization.hpp"
@@ -46,35 +48,27 @@ class SolveStep final : public Step {
   Result result_;
 };
 
-// The NLP Step block. Without Ipopt, `enter` throws a clear "needs Ipopt" error.
-class SolveNlpStep final : public Step {
- public:
-  SolveNlpStep(const Values& p, const Config& c)
-      : file_(c.contains("file") ? c.at("file") : std::string{}),
-        options_{.eps_abs = get_or(p, "tol", 1e-7),
-                 .max_iter = static_cast<int>(get_or(p, "max_iter", 500.0))},
-        workspace_(options_) {}
-
-  void enter(const Context&, const Values&) override {
-    result_ = workspace_.solve(read_nlp_problem(file_));
-    solved_ = true;
-  }
-
-  std::string tick(const Context&, const Values&) override { return solved_ ? "out" : ""; }
-
-  Values outputs() const override {
-    return {{"x", result_.x},
-            {"objective", result_.objective},
-            {"iterations", result_.iterations},
-            {"status", result_.status}};
-  }
-
- private:
-  std::string file_;
-  Options options_;
-  NlpWorkspace workspace_;
-  bool solved_ = false;
-  Result result_;
-};
+inline Template step_program(std::string type, std::string label, bool quadratic, std::string description) {
+  Template t;
+  t.name = "optimization/" + type;
+  t.def.type = std::move(type);
+  t.def.label = std::move(label);
+  t.def.kind = Kind::Function;
+  t.def.inputs = {{"in", "step"}};
+  t.def.outputs = {{"out", "step"}, numbers_port("x"), PortDef{.id = "objective"},
+                   PortDef{.id = "iterations"}, PortDef{.id = "status", .type = "text"}};
+  t.def.params = {{.id = "file", .type = "file"},
+                  {.id = "eps_abs", .default_value = 1e-5, .type = "number"},
+                  {.id = "eps_rel", .default_value = 1e-5, .type = "number"},
+                  {.id = "max_iter", .default_value = 4000.0, .type = "number"},
+                  {.id = "polish", .default_value = 1.0, .type = "boolean"}};
+  t.def.description = std::move(description);
+  t.def.view = {.compact = false, .value = "{file}"};
+  t.def.flows = {"step"};
+  t.make_step = [quadratic](const Values& p, const Config& c) {
+    return std::make_unique<SolveStep>(p, c, quadratic);
+  };
+  return t;
+}
 
 }  // namespace paperboat::toolkit::optimization

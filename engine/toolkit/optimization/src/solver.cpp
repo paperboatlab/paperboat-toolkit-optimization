@@ -12,7 +12,8 @@
 #include <nlohmann/json.hpp>
 #include <osqp.h>
 
-#include "solver.hpp"
+#include "paperboat/toolkit/optimization.hpp"
+
 
 namespace paperboat::toolkit::optimization {
 namespace {
