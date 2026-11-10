@@ -36,7 +36,8 @@ target_link_libraries(paperboat_toolkit_optimization
   PUBLIC paperboat::toolkit
   PRIVATE ${PAPERBOAT_OSQP_TARGET} paperboat_warnings)
 if(PAPERBOAT_IPOPT_INCLUDE_DIR AND PAPERBOAT_IPOPT_LIBRARY)
-  target_compile_definitions(paperboat_toolkit_optimization PRIVATE PAPERBOAT_HAS_IPOPT)
+  # Ubuntu's Ipopt headers want this from IpoptConfig.h, which they do not include.
+  target_compile_definitions(paperboat_toolkit_optimization PRIVATE PAPERBOAT_HAS_IPOPT HAVE_CSTDDEF)
   target_include_directories(paperboat_toolkit_optimization PRIVATE ${PAPERBOAT_IPOPT_INCLUDE_DIR})
   target_link_libraries(paperboat_toolkit_optimization PRIVATE ${PAPERBOAT_IPOPT_LIBRARY})
 endif()
