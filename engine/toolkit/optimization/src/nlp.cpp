@@ -16,6 +16,7 @@
 
 #ifdef PAPERBOAT_HAS_IPOPT
 #include <IpIpoptApplication.hpp>
+#include <IpSolveStatistics.hpp>
 #include <IpTNLP.hpp>
 #endif
 
@@ -230,7 +231,7 @@ class NlpTNLP final : public Ipopt::TNLP {
   std::unique_ptr<Expression> objective_expr_;
   Vector x_;
   double objective_value_ = 0.0;
-  Ipopt::SolverReturn status_ = Ipopt::Invalid_Number_Detected;
+  Ipopt::SolverReturn status_ = Ipopt::UNASSIGNED;
 };
 
 std::string status_of(Ipopt::ApplicationReturnStatus status) {
