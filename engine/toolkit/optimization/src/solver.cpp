@@ -1,6 +1,7 @@
 // Reading a problem file and running OSQP.
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <fstream>
 #include <limits>
@@ -153,51 +154,144 @@ Problem read_problem(const std::string& file, bool quadratic) {
   return problem;
 }
 
-Result solve(const Problem& problem, double eps_abs, double eps_rel, int max_iter, bool polish) {
-  Csc P;
-  if (problem.P.empty()) {  // an LP: an n×n zero P
-    P.rows = static_cast<OSQPInt>(problem.variables);
-    P.cols = P.rows;
-    P.p.assign(static_cast<std::size_t>(problem.variables) + 1, 0);
-  } else {
-    P = upper_csc(problem.P);
-  }
-  Csc A = full_csc(problem.A, problem.variables);
-  std::vector<OSQPFloat> q(problem.q.begin(), problem.q.end());
-  std::vector<OSQPFloat> l(problem.l.begin(), problem.l.end());
-  std::vector<OSQPFloat> u(problem.u.begin(), problem.u.end());
+namespace {
 
-  OSQPSettings settings;
-  osqp_set_default_settings(&settings);
-  settings.verbose = 0;
-  settings.eps_abs = static_cast<OSQPFloat>(eps_abs > 0.0 ? eps_abs : 1e-5);
-  settings.eps_rel = static_cast<OSQPFloat>(eps_rel > 0.0 ? eps_rel : 1e-5);
-  settings.max_iter = static_cast<OSQPInt>(max_iter > 0 ? max_iter : 4000);
-  settings.polishing = polish ? 1 : 0;
+using Clock = std::chrono::steady_clock;
 
-  OSQPCscMatrix p_matrix = P.matrix();
-  OSQPCscMatrix a_matrix = A.matrix();
-  OSQPSolver* solver = nullptr;
-  const OSQPInt setup = osqp_setup(&solver, &p_matrix, q.data(), &a_matrix, l.data(), u.data(),
-                                   static_cast<OSQPInt>(problem.constraints),
-                                   static_cast<OSQPInt>(problem.variables), &settings);
-  if (setup != 0) throw std::runtime_error("OSQP setup failed (" + std::to_string(setup) + ")");
+// The same sparsity pattern means OSQP can keep its factorization and update values only.
+bool same_pattern(const Csc& a, const Csc& b) { return a.i == b.i && a.p == b.p; }
 
-  Result result;
-  const OSQPInt solved = osqp_solve(solver);
-  if (solved != 0) {
-    result.status = "error " + std::to_string(solved);
-  } else {
-    result.status = solver->info->status;
-    result.iterations = static_cast<double>(solver->info->iter);
-    result.objective = std::isfinite(solver->info->obj_val) ? solver->info->obj_val : 0.0;
-    if (solver->info->status_val == OSQP_SOLVED || solver->info->status_val == OSQP_SOLVED_INACCURATE) {
-      result.x.assign(solver->solution->x, solver->solution->x + problem.variables);
+}  // namespace
+
+struct Workspace::Impl {
+  explicit Impl(Options o) : options(o) {}
+  ~Impl() { cleanup(); }
+
+  void cleanup() {
+    if (solver) {
+      osqp_cleanup(solver);
+      solver = nullptr;
     }
+    has_last = false;
   }
-  if (result.x.empty()) result.x.assign(problem.variables, 0.0);
-  osqp_cleanup(solver);
-  return result;
+
+  Result solve(const Problem& problem, const Vector& x0) {
+    Csc new_P;
+    if (problem.P.empty()) {  // an LP: an n×n zero P
+      new_P.rows = static_cast<OSQPInt>(problem.variables);
+      new_P.cols = new_P.rows;
+      new_P.p.assign(static_cast<std::size_t>(problem.variables) + 1, 0);
+    } else {
+      new_P = upper_csc(problem.P);
+    }
+    Csc new_A = full_csc(problem.A, problem.variables);
+    std::vector<OSQPFloat> new_q(problem.q.begin(), problem.q.end());
+    std::vector<OSQPFloat> new_l(problem.l.begin(), problem.l.end());
+    std::vector<OSQPFloat> new_u(problem.u.begin(), problem.u.end());
+
+    const bool reuse = solver != nullptr && n == static_cast<OSQPInt>(problem.variables) &&
+                       m == static_cast<OSQPInt>(problem.constraints) && same_pattern(P, new_P) &&
+                       same_pattern(A, new_A);
+    if (!reuse) {
+      cleanup();
+      P = std::move(new_P);
+      A = std::move(new_A);
+      q = std::move(new_q);
+      l = std::move(new_l);
+      u = std::move(new_u);
+      n = static_cast<OSQPInt>(problem.variables);
+      m = static_cast<OSQPInt>(problem.constraints);
+
+      OSQPSettings settings;
+      osqp_set_default_settings(&settings);
+      settings.verbose = 0;
+      settings.eps_abs = static_cast<OSQPFloat>(options.eps_abs > 0.0 ? options.eps_abs : 1e-5);
+      settings.eps_rel = static_cast<OSQPFloat>(options.eps_rel > 0.0 ? options.eps_rel : 1e-5);
+      settings.max_iter = static_cast<OSQPInt>(options.max_iter > 0 ? options.max_iter : 4000);
+      settings.polishing = options.polish ? 1 : 0;
+
+      OSQPCscMatrix p_matrix = P.matrix();
+      OSQPCscMatrix a_matrix = A.matrix();
+      const OSQPInt setup = osqp_setup(&solver, &p_matrix, q.data(), &a_matrix, l.data(), u.data(), m, n, &settings);
+      if (setup != 0) {
+        solver = nullptr;
+        throw std::runtime_error("OSQP setup failed (" + std::to_string(setup) + ")");
+      }
+    } else {
+      P.x = std::move(new_P.x);
+      A.x = std::move(new_A.x);
+      q = std::move(new_q);
+      l = std::move(new_l);
+      u = std::move(new_u);
+      const OSQPFloat* px = P.x.empty() ? nullptr : P.x.data();
+      const OSQPFloat* ax = A.x.empty() ? nullptr : A.x.data();
+      const OSQPFloat* lp = l.empty() ? nullptr : l.data();
+      const OSQPFloat* up = u.empty() ? nullptr : u.data();
+      osqp_update_data_mat(solver, px, nullptr, static_cast<OSQPInt>(P.x.size()), ax, nullptr,
+                           static_cast<OSQPInt>(A.x.size()));
+      osqp_update_data_vec(solver, q.data(), lp, up);
+    }
+
+    if (options.warm_start) {
+      const Vector& warm = !x0.empty() ? x0 : last_x;
+      if (!warm.empty() && static_cast<OSQPInt>(warm.size()) == n)
+        osqp_warm_start(solver, warm.data(), nullptr);
+    }
+
+    const auto started = Clock::now();
+    const OSQPInt solved = osqp_solve(solver);
+    const auto finished = Clock::now();
+
+    Result result;
+    result.solve_time = std::chrono::duration<double>(finished - started).count();
+    if (solved != 0) {
+      result.status = "error " + std::to_string(solved);
+    } else {
+      result.status = solver->info->status;
+      result.iterations = static_cast<double>(solver->info->iter);
+      result.objective = std::isfinite(solver->info->obj_val) ? solver->info->obj_val : 0.0;
+      if (solver->info->status_val == OSQP_SOLVED || solver->info->status_val == OSQP_SOLVED_INACCURATE) {
+        result.x.assign(solver->solution->x, solver->solution->x + n);
+        last_x = result.x;
+        has_last = true;
+      }
+    }
+    if (result.x.empty()) result.x.assign(static_cast<std::size_t>(n), 0.0);
+    return result;
+  }
+
+  Options options;
+  OSQPSolver* solver = nullptr;
+  Csc P, A;
+  std::vector<OSQPFloat> q, l, u;
+  OSQPInt n = 0, m = 0;
+  Vector last_x;
+  bool has_last = false;
+};
+
+Workspace::Workspace(Options options) : impl_(std::make_unique<Impl>(options)) {}
+Workspace::~Workspace() = default;
+Workspace::Workspace(Workspace&&) noexcept = default;
+Workspace& Workspace::operator=(Workspace&&) noexcept = default;
+
+Result Workspace::solve(const Problem& problem, const Vector& x0) { return impl_->solve(problem, x0); }
+
+Result Workspace::solve(const std::string& file, bool quadratic, const Vector& x0) {
+  return impl_->solve(read_problem(file, quadratic), x0);
+}
+
+void Workspace::restart() { impl_->cleanup(); }
+
+const Options& Workspace::options() const { return impl_->options; }
+
+void Workspace::set_options(const Options& options) {
+  impl_->options = options;
+  impl_->cleanup();
+}
+
+Result solve(const Problem& problem, const Options& options, const Vector& x0) {
+  Workspace workspace(options);
+  return workspace.solve(problem, x0);
 }
 
 }  // namespace paperboat::toolkit::optimization

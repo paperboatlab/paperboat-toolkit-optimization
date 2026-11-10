@@ -5,15 +5,34 @@ The optional optimization toolkit for [Paperboat](https://github.com/paperboatla
 It provides the `optimization` package: quadratic and linear programs on the Flow page,
 solved by [OSQP](https://osqp.org) (Apache-2.0). The blocks are `qp` (min ½·xᵀPx + qᵀx) and
 `lp` (min cᵀx), both subject to `l ≤ Ax ≤ u`, with `x`, `objective`, `iterations` and
-`status` outputs. A problem is a JSON file on the block:
+`status` outputs. They are **Step** blocks: the path arrives at `in`, the block solves once,
+and the path leaves by `out`. The signal outputs carry the result to the rest of the flow.
+A problem is a JSON file on the block:
 
 ```json
 { "P": [[1, 0], [0, 1]], "q": [-2, -1], "A": [[1, 1]], "l": [1], "u": [1] }
 ```
 
 `P` uses its upper triangle, a `null` in `l` or `u` is an infinite bound, and `A`, `l` and
-`u` may be omitted. An LP uses `c` instead of `P`/`q`. These blocks are usually run once (a
-design point, a plan, a schedule): the block solves on its first step and keeps the answer.
+`u` may be omitted. An LP uses `c` instead of `P`/`q`. A solve block is one step in a
+procedure (a design point, a plan, a schedule); a new arrival re-reads the file and solves
+again.
+
+The same solver is a C++ workspace for a per-step controller. It keeps the OSQP
+factorization when the dimensions and sparsity are unchanged, updates the values, and
+warm-starts from the last solution. The control toolkit uses `Workspace::solve` rather than
+copying OSQP:
+
+```cpp
+#include "paperboat/toolkit/optimization.hpp"
+
+namespace opt = paperboat::toolkit::optimization;
+
+opt::Workspace workspace;
+opt::Problem problem = opt::read_problem("cart_pole.dyn.json", true);
+auto result = workspace.solve(problem);
+// Next step: update problem.q/problem.A and solve again. Same shape: warm start.
+```
 
 ## Using it
 
