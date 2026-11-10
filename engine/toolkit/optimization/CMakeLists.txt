@@ -29,9 +29,13 @@ endif()
 find_path(PAPERBOAT_IPOPT_INCLUDE_DIR IpIpoptApplication.hpp PATH_SUFFIXES coin)
 find_library(PAPERBOAT_IPOPT_LIBRARY ipopt)
 
-add_library(paperboat_toolkit_optimization src/blocks.cpp src/solver.cpp src/nlp.cpp)
+# One folder per block: src/optimization/<block>/<block>.cpp. src/ holds the solver code the
+# blocks wrap, and register.cpp.
+file(GLOB PAPERBOAT_OPTIMIZATION_BLOCKS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/optimization/*/*.cpp")
+add_library(paperboat_toolkit_optimization src/register.cpp src/solver.cpp src/nlp.cpp
+  ${PAPERBOAT_OPTIMIZATION_BLOCKS})
 add_library(paperboat::toolkit_optimization ALIAS paperboat_toolkit_optimization)
-target_include_directories(paperboat_toolkit_optimization PUBLIC include)
+target_include_directories(paperboat_toolkit_optimization PUBLIC include PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(paperboat_toolkit_optimization
   PUBLIC paperboat::toolkit
   PRIVATE ${PAPERBOAT_OSQP_TARGET} paperboat_warnings)
