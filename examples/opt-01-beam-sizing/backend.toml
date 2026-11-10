@@ -1,0 +1,10 @@
+[backend]
+format = 0
+name = "opt-01-beam-sizing"
+version = "0.1.0"
+engine = ">=0.1"
+language = "cpp"
+run = "build/paperboat-opt-beam"
+port = 8782
+descriptor = "descriptor.toml"
+toolkits = ["optimization"]
