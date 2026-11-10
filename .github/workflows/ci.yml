@@ -19,7 +19,7 @@ jobs:
       - name: Overlay the toolkit
         run: cp -r engine/toolkit/optimization paperboat/engine/toolkit/optimization
       - name: Install build tools
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ninja-build cmake g++
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ninja-build cmake g++ coinor-libipopt-dev
       - name: Configure
         run: cmake -S paperboat/engine -B paperboat/engine/build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DPAPERBOAT_BUILD_TESTS=ON
       - name: Build

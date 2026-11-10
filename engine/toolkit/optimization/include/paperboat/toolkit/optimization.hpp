@@ -61,6 +61,58 @@ struct Result {
   std::string status;
 };
 
+// A small nonlinear program over named scalar variables:
+//
+//   min objective(x)   subject to  constraint.lower <= constraint.expression(x) <= constraint.upper
+//
+// The expressions use the same language as the signal/generator blocks (x^2, sin(x), …). The
+// NLP block reads the JSON form; the control NMPC uses the same workspace.
+struct NlpVariable {
+  std::string name;
+  double initial = 0.0;
+  double lower = -1e20;
+  double upper = 1e20;
+};
+
+struct NlpConstraint {
+  std::string expression;
+  double lower = -1e20;
+  double upper = 1e20;
+};
+
+struct NlpProblem {
+  std::vector<NlpVariable> variables;
+  std::string objective;
+  std::vector<NlpConstraint> constraints;
+};
+
+// Read `file` as an NlpProblem. Throws std::runtime_error naming the key/name that does not fit.
+NlpProblem read_nlp_problem(const std::string& file);
+
+// True when the toolkit was built with Ipopt. Without it, the NLP workspace and block report a
+// clear "needs Ipopt" error; the rest of the toolkit still works.
+bool has_nlp();
+
+// A reusable NLP workspace (Ipopt). It rebuilds the Ipopt problem for each solve; warm starts
+// are passed through `x0`/the last solution.
+class NlpWorkspace {
+ public:
+  explicit NlpWorkspace(Options options = {});
+  ~NlpWorkspace();
+  NlpWorkspace(const NlpWorkspace&) = delete;
+  NlpWorkspace& operator=(const NlpWorkspace&) = delete;
+
+  Result solve(const NlpProblem& problem, const Vector& x0 = {});
+  Result solve(const std::string& file, const Vector& x0 = {});
+
+  const Options& options() const;
+  void set_options(const Options& options);
+
+ private:
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
+};
+
 // Read `file` as a QP (`quadratic` true) or an LP. Throws std::runtime_error naming the
 // key and the shape that does not fit.
 Problem read_problem(const std::string& file, bool quadratic);

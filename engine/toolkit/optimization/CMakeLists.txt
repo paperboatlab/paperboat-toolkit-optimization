@@ -24,16 +24,27 @@ else()
   set(PAPERBOAT_OSQP_TARGET osqpstatic)
 endif()
 
-add_library(paperboat_toolkit_optimization src/blocks.cpp src/solver.cpp)
+# Ipopt is optional: without it the NLP block still registers and reports "needs Ipopt"; the
+# QP/LP blocks and the control MPC keep working.
+find_path(PAPERBOAT_IPOPT_INCLUDE_DIR IpIpoptApplication.hpp PATH_SUFFIXES coin)
+find_library(PAPERBOAT_IPOPT_LIBRARY ipopt)
+
+add_library(paperboat_toolkit_optimization src/blocks.cpp src/solver.cpp src/nlp.cpp)
 add_library(paperboat::toolkit_optimization ALIAS paperboat_toolkit_optimization)
 target_include_directories(paperboat_toolkit_optimization PUBLIC include)
 target_link_libraries(paperboat_toolkit_optimization
   PUBLIC paperboat::toolkit
   PRIVATE ${PAPERBOAT_OSQP_TARGET} paperboat_warnings)
+if(PAPERBOAT_IPOPT_INCLUDE_DIR AND PAPERBOAT_IPOPT_LIBRARY)
+  # Ubuntu's Ipopt headers want this from IpoptConfig.h, which they do not include.
+  target_compile_definitions(paperboat_toolkit_optimization PRIVATE PAPERBOAT_HAS_IPOPT HAVE_CSTDDEF)
+  target_include_directories(paperboat_toolkit_optimization PRIVATE ${PAPERBOAT_IPOPT_INCLUDE_DIR})
+  target_link_libraries(paperboat_toolkit_optimization PRIVATE ${PAPERBOAT_IPOPT_LIBRARY})
+endif()
 
 if(PAPERBOAT_BUILD_TESTS)
   add_executable(paperboat_optimization_tests tests/solver_test.cpp)
   target_include_directories(paperboat_optimization_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(paperboat_optimization_tests PRIVATE paperboat_toolkit_optimization Catch2::Catch2WithMain)
+  target_link_libraries(paperboat_optimization_tests PRIVATE paperboat_toolkit_optimization Catch2::Catch2WithMain)
   add_test(NAME paperboat_optimization_tests COMMAND paperboat_optimization_tests)
 endif()

@@ -35,6 +35,25 @@ Template step_program(std::string type, std::string label, bool quadratic, std::
   return t;
 }
 
+Template nlp_program() {
+  Template t;
+  t.name = "optimization/nlp";
+  t.def.type = "nlp";
+  t.def.label = "Solve NLP";
+  t.def.kind = Kind::Function;
+  t.def.inputs = {{"in", "step"}};
+  t.def.outputs = {{"out", "step"}, numbers_port("x"), PortDef{.id = "objective"},
+                   PortDef{.id = "iterations"}, PortDef{.id = "status", .type = "text"}};
+  t.def.params = {{.id = "file", .type = "file"},
+                  {.id = "tol", .default_value = 1e-7, .type = "number"},
+                  {.id = "max_iter", .default_value = 500.0, .type = "number"}};
+  t.def.description = "Solves min f(x) with g_l <= g(x) <= g_u from a JSON file (Ipopt).";
+  t.def.view = {.compact = false, .value = "{file}"};
+  t.def.flows = {"step"};
+  t.make_step = [](const Values& p, const Config& c) { return std::make_unique<SolveNlpStep>(p, c); };
+  return t;
+}
+
 }  // namespace
 
 void register_optimization(Registry& registry) {
@@ -42,6 +61,7 @@ void register_optimization(Registry& registry) {
                             "Solves min 1/2 x'Px + q'x with l <= Ax <= u from a JSON file (OSQP)."));
   registry.add(step_program("lp", "Solve LP", false,
                             "Solves min c'x with l <= Ax <= u from a JSON file (OSQP)."));
+  registry.add(nlp_program());
 }
 
 }  // namespace paperboat::toolkit::optimization

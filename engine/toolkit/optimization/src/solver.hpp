@@ -46,4 +46,35 @@ class SolveStep final : public Step {
   Result result_;
 };
 
+// The NLP Step block. Without Ipopt, `enter` throws a clear "needs Ipopt" error.
+class SolveNlpStep final : public Step {
+ public:
+  SolveNlpStep(const Values& p, const Config& c)
+      : file_(c.contains("file") ? c.at("file") : std::string{}),
+        options_{.eps_abs = get_or(p, "tol", 1e-7),
+                 .max_iter = static_cast<int>(get_or(p, "max_iter", 500.0))},
+        workspace_(options_) {}
+
+  void enter(const Context&, const Values&) override {
+    result_ = workspace_.solve(read_nlp_problem(file_));
+    solved_ = true;
+  }
+
+  std::string tick(const Context&, const Values&) override { return solved_ ? "out" : ""; }
+
+  Values outputs() const override {
+    return {{"x", result_.x},
+            {"objective", result_.objective},
+            {"iterations", result_.iterations},
+            {"status", result_.status}};
+  }
+
+ private:
+  std::string file_;
+  Options options_;
+  NlpWorkspace workspace_;
+  bool solved_ = false;
+  Result result_;
+};
+
 }  // namespace paperboat::toolkit::optimization

@@ -6,6 +6,7 @@
 #include <fstream>
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_string.hpp>
 #include <nlohmann/json.hpp>
 
 #include "paperboat/toolkit/descriptor.hpp"
@@ -81,4 +82,46 @@ edges = []
   CHECK(qp->at("flows") == nlohmann::json{"step"});
   CHECK(qp->at("inputs").at(0).at("type") == "step");
   CHECK(qp->at("outputs").at(0).at("type") == "step");
+}
+
+TEST_CASE("an NLP problem reads from JSON") {
+  const auto path = std::filesystem::temp_directory_path() / "paperboat_optimization_test.nlp.json";
+  {
+    std::ofstream out(path);
+    out << R"({
+      "variables": [
+        {"name": "x", "initial": 0, "lower": -5, "upper": 5},
+        {"name": "y", "initial": 0, "lower": -5, "upper": 5}
+      ],
+      "objective": "x^2 + y^2",
+      "constraints": [{"expression": "x + y - 1", "lower": 0, "upper": 0}]
+    })";
+  }
+  const auto problem = opt::read_nlp_problem(path.string());
+  REQUIRE(problem.variables.size() == 2);
+  CHECK(problem.variables[0].name == "x");
+  CHECK(problem.objective == "x^2 + y^2");
+  REQUIRE(problem.constraints.size() == 1);
+  CHECK(problem.constraints[0].lower == 0.0);
+  CHECK(problem.constraints[0].upper == 0.0);
+  std::filesystem::remove(path);
+}
+
+TEST_CASE("the NLP workspace solves, or says it needs Ipopt") {
+  opt::NlpProblem problem;
+  problem.variables = {{.name = "x", .initial = 0.0, .lower = -5.0, .upper = 5.0},
+                       {.name = "y", .initial = 0.0, .lower = -5.0, .upper = 5.0}};
+  problem.objective = "x^2 + y^2";
+  problem.constraints = {{.expression = "x + y - 1", .lower = 0.0, .upper = 0.0}};
+
+  opt::NlpWorkspace workspace;
+  if (!opt::has_nlp()) {
+    CHECK_THROWS_WITH(workspace.solve(problem), Catch::Matchers::ContainsSubstring("needs Ipopt"));
+    return;
+  }
+  const auto result = workspace.solve(problem);
+  CHECK(result.status.find("solved") != std::string::npos);
+  REQUIRE(result.x.size() == 2);
+  CHECK(std::abs(result.x[0] - 0.5) < 1e-4);
+  CHECK(std::abs(result.x[1] - 0.5) < 1e-4);
 }
