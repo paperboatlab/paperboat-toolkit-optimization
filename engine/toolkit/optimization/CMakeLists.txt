@@ -30,3 +30,10 @@ target_include_directories(paperboat_toolkit_optimization PUBLIC include)
 target_link_libraries(paperboat_toolkit_optimization
   PUBLIC paperboat::toolkit
   PRIVATE ${PAPERBOAT_OSQP_TARGET} paperboat_warnings)
+
+if(PAPERBOAT_BUILD_TESTS)
+  add_executable(paperboat_optimization_tests tests/solver_test.cpp)
+  target_include_directories(paperboat_optimization_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(paperboat_optimization_tests PRIVATE paperboat_toolkit_optimization Catch2::Catch2WithMain)
+  add_test(NAME paperboat_optimization_tests COMMAND paperboat_optimization_tests)
+endif()
