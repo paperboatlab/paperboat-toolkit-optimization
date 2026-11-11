@@ -1,0 +1,35 @@
+# opt-02-production-plan: one step in a procedure solves a small LP with the optional
+# `optimization` package.
+#
+#   Start → Solve LP → Stop
+#              └→ Graph and Display of x
+domain = "opt-plan"
+
+import = ["optimization", "step", "dashboard"]
+
+# No station bodies: open on the Flow graph.
+[station]
+view = "graph"
+objects = []
+
+[graph]
+nodes = [
+  { id = "start-1", type = "start", pos = [0, 0] },
+  { id = "lp-1", type = "lp", params = { file = "plan.lp.json" }, pos = [220, 0] },
+  { id = "graph-1", type = "graph", pos = [440, -100] },
+  { id = "display-1", type = "display", pos = [440, 40] },
+  { id = "stop-1", type = "stop", pos = [660, 0] },
+]
+edges = [
+  { from = ["start-1", "next"], to = ["lp-1", "in"] },
+  { from = ["lp-1", "out"], to = ["stop-1", "in"] },
+  { from = ["lp-1", "x"], to = ["graph-1", "in"] },
+  { from = ["lp-1", "x"], to = ["display-1", "in"] },
+]
+
+[dashboard]
+columns = 4
+instruments = [
+  { block = "graph-1", size = "normal", at = [0, 0] },
+  { block = "display-1", size = "compact", at = [2, 0] },
+]

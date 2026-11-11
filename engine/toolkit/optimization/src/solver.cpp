@@ -102,7 +102,7 @@ Csc full_csc(const Matrix& matrix, std::size_t columns) {
 }  // namespace
 
 Problem read_problem(const std::string& file, bool quadratic) {
-  if (file.empty()) throw std::runtime_error("needs a file: a JSON problem with P/q or c, A, l and u");
+  if (file.empty()) throw std::runtime_error("needs a file: a JSON problem");
   std::ifstream in(file);
   if (!in) throw std::runtime_error("cannot open " + file);
   nlohmann::json doc;
@@ -114,43 +114,101 @@ Problem read_problem(const std::string& file, bool quadratic) {
   if (!doc.is_object()) throw std::runtime_error(file + ": the problem must be a JSON object");
 
   Problem problem;
+  const Matrix matrix = doc.contains("H") ? rows_of(doc, "H", file) :
+                        doc.contains("P") ? rows_of(doc, "P", file) : Matrix{};
+  const Vector linear = doc.contains("f") ? vector_of(doc, "f", file) :
+                        doc.contains("q") ? vector_of(doc, "q", file) :
+                        doc.contains("c") ? vector_of(doc, "c", file) : Vector{};
+
   if (quadratic) {
-    problem.P = rows_of(doc, "P", file);
-    problem.q = vector_of(doc, "q", file);
-    if (problem.P.empty()) throw std::runtime_error(file + ": a QP needs \"P\" (n rows)");
-    if (problem.q.empty()) throw std::runtime_error(file + ": a QP needs \"q\" (n numbers)");
+    problem.P = matrix;
+    problem.q = linear;
+    if (problem.P.empty()) throw std::runtime_error(file + ": a QP needs \"H\" (n rows) or \"P\"");
+    if (problem.q.empty()) throw std::runtime_error(file + ": a QP needs \"f\" (n numbers) or \"q\"");
     problem.variables = problem.q.size();
     if (problem.P.size() != problem.variables)
-      throw std::runtime_error(file + ": \"P\" has " + std::to_string(problem.P.size()) + " rows, expected " +
+      throw std::runtime_error(file + ": \"H\" has " + std::to_string(problem.P.size()) + " rows, expected " +
                                std::to_string(problem.variables));
     for (const auto& row : problem.P)
       if (row.size() != problem.variables)
-        throw std::runtime_error(file + ": every row of \"P\" needs " + std::to_string(problem.variables) + " numbers");
+        throw std::runtime_error(file + ": every row of \"H\" needs " + std::to_string(problem.variables) + " numbers");
   } else {
-    problem.q = vector_of(doc, "c", file);
-    if (problem.q.empty()) problem.q = vector_of(doc, "q", file);
-    if (problem.q.empty()) throw std::runtime_error(file + ": an LP needs \"c\" (n numbers)");
+    if (!matrix.empty()) throw std::runtime_error(file + ": an LP is linear; \"H\" belongs to a QP");
+    problem.q = linear;
+    if (problem.q.empty()) throw std::runtime_error(file + ": an LP needs \"f\" (n numbers) or \"c\"");
     problem.variables = problem.q.size();
   }
 
-  problem.A = rows_of(doc, "A", file);
-  problem.constraints = problem.A.size();
-  if (!problem.A.empty())
-    for (const auto& row : problem.A)
-      if (row.size() != problem.variables)
-        throw std::runtime_error(file + ": every row of \"A\" needs " + std::to_string(problem.variables) + " numbers");
+  // fmincon: A x <= b, Aeq x = beq, lb <= x <= ub. The older solver form uses l <= A x <= u.
+  const bool fmincon = doc.contains("H") || doc.contains("f") || doc.contains("b") ||
+                       doc.contains("Aeq") || doc.contains("beq") || doc.contains("lb") || doc.contains("ub");
+  if (!fmincon) {
+    problem.A = rows_of(doc, "A", file);
+    problem.constraints = problem.A.size();
+    if (!problem.A.empty())
+      for (const auto& row : problem.A)
+        if (row.size() != problem.variables)
+          throw std::runtime_error(file + ": every row of \"A\" needs " + std::to_string(problem.variables) + " numbers");
+    problem.l = vector_of(doc, "l", file);
+    problem.u = vector_of(doc, "u", file);
+    if (!problem.l.empty() && problem.l.size() != problem.constraints)
+      throw std::runtime_error(file + ": \"l\" needs " + std::to_string(problem.constraints) + " numbers");
+    if (!problem.u.empty() && problem.u.size() != problem.constraints)
+      throw std::runtime_error(file + ": \"u\" needs " + std::to_string(problem.constraints) + " numbers");
+    problem.l.resize(problem.constraints, -OSQP_INFTY);
+    problem.u.resize(problem.constraints, OSQP_INFTY);
+    for (std::size_t i = 0; i < problem.constraints; ++i) {
+      if (std::isnan(problem.l[i])) problem.l[i] = -static_cast<double>(OSQP_INFTY);
+      if (std::isnan(problem.u[i])) problem.u[i] = static_cast<double>(OSQP_INFTY);
+    }
+    return problem;
+  }
 
-  problem.l = vector_of(doc, "l", file);
-  problem.u = vector_of(doc, "u", file);
-  if (!problem.l.empty() && problem.l.size() != problem.constraints)
-    throw std::runtime_error(file + ": \"l\" needs " + std::to_string(problem.constraints) + " numbers");
-  if (!problem.u.empty() && problem.u.size() != problem.constraints)
-    throw std::runtime_error(file + ": \"u\" needs " + std::to_string(problem.constraints) + " numbers");
-  problem.l.resize(problem.constraints, -OSQP_INFTY);
-  problem.u.resize(problem.constraints, OSQP_INFTY);
-  for (std::size_t i = 0; i < problem.constraints; ++i) {
-    if (std::isnan(problem.l[i])) problem.l[i] = -static_cast<double>(OSQP_INFTY);
-    if (std::isnan(problem.u[i])) problem.u[i] = static_cast<double>(OSQP_INFTY);
+  const Matrix A = rows_of(doc, "A", file);
+  const Matrix Aeq = rows_of(doc, "Aeq", file);
+  const Vector b = vector_of(doc, "b", file);
+  const Vector beq = vector_of(doc, "beq", file);
+  if (!A.empty() && b.empty()) throw std::runtime_error(file + ": fmincon \"A\" needs \"b\"");
+  if (!Aeq.empty() && beq.empty()) throw std::runtime_error(file + ": fmincon \"Aeq\" needs \"beq\"");
+  if (!b.empty() && b.size() != A.size()) throw std::runtime_error(file + ": \"b\" needs one number per row of \"A\"");
+  if (!beq.empty() && beq.size() != Aeq.size()) throw std::runtime_error(file + ": \"beq\" needs one number per row of \"Aeq\"");
+  for (const auto& row : A)
+    if (row.size() != problem.variables) throw std::runtime_error(file + ": every row of \"A\" needs " + std::to_string(problem.variables) + " numbers");
+  for (const auto& row : Aeq)
+    if (row.size() != problem.variables) throw std::runtime_error(file + ": every row of \"Aeq\" needs " + std::to_string(problem.variables) + " numbers");
+
+  auto bound = [&](const char* key, double missing) {
+    Vector v = vector_of(doc, key, file);
+    if (v.empty()) return Vector(problem.variables, missing);
+    if (v.size() != problem.variables)
+      throw std::runtime_error(file + ": \"" + key + "\" needs " + std::to_string(problem.variables) + " numbers");
+    for (double& value : v) if (std::isnan(value)) value = missing;
+    return v;
+  };
+  const bool bounded = doc.contains("lb") || doc.contains("ub");
+  const Vector lb = bound("lb", -OSQP_INFTY);
+  const Vector ub = bound("ub", OSQP_INFTY);
+
+  problem.constraints = A.size() + Aeq.size() + (bounded ? problem.variables : 0);
+  problem.A.reserve(problem.constraints);
+  for (std::size_t i = 0; i < A.size(); ++i) {
+    problem.A.push_back(A[i]);
+    problem.l.push_back(-OSQP_INFTY);
+    problem.u.push_back(b[i]);
+  }
+  for (std::size_t i = 0; i < Aeq.size(); ++i) {
+    problem.A.push_back(Aeq[i]);
+    problem.l.push_back(beq[i]);
+    problem.u.push_back(beq[i]);
+  }
+  if (bounded) {
+    for (std::size_t j = 0; j < problem.variables; ++j) {
+      Vector row(problem.variables, 0.0);
+      row[j] = 1.0;
+      problem.A.push_back(std::move(row));
+      problem.l.push_back(lb[j]);
+      problem.u.push_back(ub[j]);
+    }
   }
   return problem;
 }

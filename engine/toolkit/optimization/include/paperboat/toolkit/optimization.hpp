@@ -2,10 +2,14 @@
 
 // The optimization package: quadratic and linear programs as blocks, solved by OSQP.
 //
-// A problem is a JSON file on the block (a setting, not a signal):
+// A problem is a JSON file on the block (a setting, not a signal). The fields follow MATLAB's
+// fmincon, with the objective in matrix form for the convex solvers:
 //
-//   QP:  { "P": n×n, "q": n, "A": m×n, "l": m, "u": m }   min 1/2 x'Px + q'x, l <= Ax <= u
-//   LP:  { "c": n, "A": m×n, "l": m, "u": m }             min c'x,          l <= Ax <= u
+//   QP:  { "H": n×n, "f": n, "A": m×n, "b": m, "Aeq": k×n, "beq": k, "lb": n, "ub": n }
+//        min 1/2 x'Hx + f'x   s.t. A x <= b, Aeq x = beq, lb <= x <= ub
+//   LP:  { "f": n, ... the same constraint fields ... }   min f'x
+//
+// The older solver-shaped form ({ "P", "q", "A", "l", "u" } or { "c", ... }) is still read.
 //
 // P uses its upper triangle; a null in l or u is an infinite bound; A, l and u may be
 // omitted (an unconstrained problem). The result is `x` (numbers), `objective`, `iterations`
@@ -61,12 +65,18 @@ struct Result {
   std::string status;
 };
 
-// A small nonlinear program over named scalar variables:
+// A nonlinear program in the same fmincon shape:
 //
-//   min objective(x)   subject to  constraint.lower <= constraint.expression(x) <= constraint.upper
+//   { "fun": "...", "x0": n, "A": m×n, "b": m, "Aeq": k×n, "beq": k,
+//     "lb": n, "ub": n, "nonlcon": { "c": ["..."], "ceq": ["..."] },
+//     "options": { "tol": 1e-8, "max_iter": 500 } }
 //
-// The expressions use the same language as the signal/generator blocks (x^2, sin(x), …). The
-// NLP block reads the JSON form; the control NMPC uses the same workspace.
+//   min fun(x)  s.t.  A x <= b, Aeq x = beq, lb <= x <= ub,
+//                     c(x) <= 0, ceq(x) = 0
+//
+// Write `x(1)`, `x(2)` in expressions (or `x1`, `x2`); the expressions use the same language as
+// the signal/generator blocks. The older { "variables", "objective", "constraints" } form is
+// still read for the NMPC path.
 struct NlpVariable {
   std::string name;
   double initial = 0.0;
@@ -84,6 +94,9 @@ struct NlpProblem {
   std::vector<NlpVariable> variables;
   std::string objective;
   std::vector<NlpConstraint> constraints;
+  /// From the file's `options`; 0 means "use the workspace's options".
+  double tol = 0.0;
+  int max_iter = 0;
 };
 
 // Read `file` as an NlpProblem. Throws std::runtime_error naming the key/name that does not fit.

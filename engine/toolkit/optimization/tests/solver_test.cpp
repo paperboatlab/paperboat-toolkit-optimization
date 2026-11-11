@@ -125,3 +125,77 @@ TEST_CASE("the NLP workspace solves, or says it needs Ipopt") {
   CHECK(std::abs(result.x[0] - 0.5) < 1e-4);
   CHECK(std::abs(result.x[1] - 0.5) < 1e-4);
 }
+
+TEST_CASE("fmincon fields read into an OSQP QP") {
+  const auto path = std::filesystem::temp_directory_path() / "paperboat_optimization_fmincon.qp.json";
+  {
+    std::ofstream out(path);
+    out << R"({"H": [[2, 0], [0, 2]], "f": [-2, -1],
+               "Aeq": [[1, 1]], "beq": [1],
+               "lb": [0, 0], "ub": [1, 1]})";
+  }
+  opt::Workspace workspace;
+  const auto result = workspace.solve(path.string(), true);
+  CHECK(result.status.find("solved") != std::string::npos);
+  REQUIRE(result.x.size() == 2);
+  CHECK(std::abs(result.x[0] - 0.75) < 1e-4);
+  CHECK(std::abs(result.x[1] - 0.25) < 1e-4);
+  std::filesystem::remove(path);
+}
+
+TEST_CASE("fmincon fields read into an LP") {
+  const auto path = std::filesystem::temp_directory_path() / "paperboat_optimization_fmincon.lp.json";
+  {
+    std::ofstream out(path);
+    out << R"({"f": [-3, -2], "A": [[2, 1], [1, 2], [1, 1]], "b": [8, 8, 5], "lb": [0, 0]})";
+  }
+  const opt::Problem problem = opt::read_problem(path.string(), false);
+  REQUIRE(problem.variables == 2);
+  REQUIRE(problem.constraints == 5);  // three inequalities + two bound rows
+  const auto result = opt::solve(problem);
+  CHECK(result.status.find("solved") != std::string::npos);
+  REQUIRE(result.x.size() == 2);
+  CHECK(std::abs(result.x[0] - 3.0) < 1e-4);
+  CHECK(std::abs(result.x[1] - 2.0) < 1e-4);
+  CHECK(std::abs(result.objective + 13.0) < 1e-4);
+  std::filesystem::remove(path);
+}
+
+TEST_CASE("fmincon fields read into an NLP, with x(1) translated") {
+  const auto path = std::filesystem::temp_directory_path() / "paperboat_optimization_fmincon.nlp.json";
+  {
+    std::ofstream out(path);
+    out << R"({
+      "fun": "(x(1) - 1)^2 + (x(2) - 2)^2",
+      "x0": [0.5, 1.5],
+      "Aeq": [[1, 1]], "beq": [2],
+      "lb": [0, 0], "ub": [2, 2],
+      "nonlcon": { "c": ["x(1)^2 + x(2)^2 - 2"] },
+      "options": { "tol": 1e-8, "max_iter": 400 }
+    })";
+  }
+  const opt::NlpProblem problem = opt::read_nlp_problem(path.string());
+  REQUIRE(problem.variables.size() == 2);
+  CHECK(problem.variables[0].name == "x1");
+  CHECK(problem.objective == "(x1 - 1)^2 + (x2 - 2)^2");
+  REQUIRE(problem.constraints.size() == 2);  // Aeq x = beq, then c(x) <= 0
+  CHECK(problem.constraints[0].lower == 0.0);
+  CHECK(problem.constraints[0].upper == 0.0);
+  CHECK(problem.constraints[1].upper == 0.0);
+  CHECK(problem.tol == 1e-8);
+  CHECK(problem.max_iter == 400);
+
+  opt::NlpWorkspace workspace;
+  if (!opt::has_nlp()) {
+    CHECK_THROWS_WITH(workspace.solve(problem), Catch::Matchers::ContainsSubstring("needs Ipopt"));
+    std::filesystem::remove(path);
+    return;
+  }
+  const auto result = workspace.solve(problem);
+  CHECK(result.status.find("solved") != std::string::npos);
+  REQUIRE(result.x.size() == 2);
+  CHECK(std::abs(result.x[0] - 1.0) < 1e-4);
+  CHECK(std::abs(result.x[1] - 1.0) < 1e-4);
+  CHECK(std::abs(result.objective - 1.0) < 1e-4);
+  std::filesystem::remove(path);
+}
