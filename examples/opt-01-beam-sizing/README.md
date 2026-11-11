@@ -29,6 +29,8 @@ The solution is `x = [0.75, 0.25]`. The `qp` block is a Step block: the path arr
 `in`, the block solves once, and the path leaves by `out`. The graph and display read the
 `x` signal output.
 
+Set `"options": { "display": "iter" }` to print the solver steps (`final` for one line, `off` for silence).
+
 ## Run
 
 ```sh

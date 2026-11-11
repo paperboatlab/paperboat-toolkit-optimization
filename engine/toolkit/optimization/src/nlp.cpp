@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cmath>
 #include <iomanip>
+#include <iostream>
 #include <sstream>
 #include <fstream>
 #include <limits>
@@ -230,6 +231,8 @@ NlpProblem read_nlp_problem(const std::string& file) {
       const auto& options = doc["options"];
       problem.tol = number_or(options, "tol", 0.0);
       problem.max_iter = static_cast<int>(number_or(options, "max_iter", 0.0));
+      if (options.contains("display") && options["display"].is_string())
+        problem.display = options["display"].get<std::string>();
     }
   }
 
@@ -419,7 +422,9 @@ struct NlpWorkspace::Impl {
     app->Options()->SetNumericValue("tol", tol);
     app->Options()->SetIntegerValue("max_iter", max_iter);
     app->Options()->SetStringValue("hessian_approximation", "limited-memory");
-    app->Options()->SetStringValue("print_level", "0");
+    std::string display = problem.display.empty() ? options.display : problem.display;
+    for (char& c : display) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    app->Options()->SetStringValue("print_level", display == "iter" || display == "iter-detailed" ? "5" : "0");
     app->Options()->SetStringValue("sb", "yes");
     if (app->Initialize() != Ipopt::Solve_Succeeded) throw std::runtime_error("Ipopt failed to initialize");
 
@@ -433,6 +438,12 @@ struct NlpWorkspace::Impl {
     result.iterations = static_cast<double>(app->Statistics()->IterationCount());
     result.solve_time = std::chrono::duration<double>(finished - started).count();
     result.status = status_of(status);
+    if (display != "off") {
+      std::cout << "optimization/nlp: " << result.status << " · objective " << result.objective
+                << " · " << result.iterations << " iterations · x = [";
+      for (std::size_t i = 0; i < result.x.size(); ++i) std::cout << (i ? ", " : "") << result.x[i];
+      std::cout << "]\n";
+    }
     return result;
   }
 };

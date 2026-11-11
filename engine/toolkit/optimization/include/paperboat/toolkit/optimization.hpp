@@ -47,6 +47,8 @@ struct Problem {
   Vector u;
   std::size_t variables = 0;
   std::size_t constraints = 0;
+  /// From the file's options: "off", "final" or "iter" (MATLAB's Display).
+  std::string display;
 };
 
 struct Options {
@@ -55,6 +57,8 @@ struct Options {
   int max_iter = 4000;
   bool polish = true;
   bool warm_start = true;
+  /// "off", "final" (a one-line summary) or "iter" (the solver's iteration table).
+  std::string display = "final";
 };
 
 struct Result {
@@ -97,6 +101,8 @@ struct NlpProblem {
   /// From the file's `options`; 0 means "use the workspace's options".
   double tol = 0.0;
   int max_iter = 0;
+  /// "off", "final" or "iter"; empty means "use the workspace's options".
+  std::string display;
 };
 
 // Read `file` as an NlpProblem. Throws std::runtime_error naming the key/name that does not fit.

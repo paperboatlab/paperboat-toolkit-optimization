@@ -27,6 +27,8 @@ Expressions take `x(1)`, `x(2)` (or `x1`, `x2`) and the usual functions (`sin`, 
 
 The closest point to `(1, 2)` on `x₁ + x₂ = 2` and `x₁² + x₂² ≤ 2` is `x = [1, 1]`, objective 1.
 
+Set `"options": { "display": "iter" }` to print the solver steps (`final` for one line, `off` for silence).
+
 ## Run
 
 ```sh

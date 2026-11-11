@@ -1,9 +1,11 @@
 // Reading a problem file and running OSQP.
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <fstream>
+#include <iostream>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -114,6 +116,8 @@ Problem read_problem(const std::string& file, bool quadratic) {
   if (!doc.is_object()) throw std::runtime_error(file + ": the problem must be a JSON object");
 
   Problem problem;
+  if (doc.contains("options") && doc["options"].is_object() && doc["options"].contains("display"))
+    problem.display = doc["options"]["display"].get<std::string>();
   const Matrix matrix = doc.contains("H") ? rows_of(doc, "H", file) :
                         doc.contains("P") ? rows_of(doc, "P", file) : Matrix{};
   const Vector linear = doc.contains("f") ? vector_of(doc, "f", file) :
@@ -235,6 +239,8 @@ struct Workspace::Impl {
   }
 
   Result solve(const Problem& problem, const Vector& x0) {
+    std::string display = problem.display.empty() ? options.display : problem.display;
+    for (char& c : display) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     Csc new_P;
     if (problem.P.empty()) {  // an LP: an n×n zero P
       new_P.rows = static_cast<OSQPInt>(problem.variables);
@@ -263,7 +269,7 @@ struct Workspace::Impl {
 
       OSQPSettings settings;
       osqp_set_default_settings(&settings);
-      settings.verbose = 0;
+      settings.verbose = display == "iter" || display == "iter-detailed" ? 1 : 0;
       settings.eps_abs = static_cast<OSQPFloat>(options.eps_abs > 0.0 ? options.eps_abs : 1e-5);
       settings.eps_rel = static_cast<OSQPFloat>(options.eps_rel > 0.0 ? options.eps_rel : 1e-5);
       settings.max_iter = static_cast<OSQPInt>(options.max_iter > 0 ? options.max_iter : 4000);
@@ -316,6 +322,12 @@ struct Workspace::Impl {
       }
     }
     if (result.x.empty()) result.x.assign(static_cast<std::size_t>(n), 0.0);
+    if (display != "off") {
+      std::cout << "optimization: " << result.status << " · objective " << result.objective
+                << " · " << result.iterations << " iterations · x = [";
+      for (std::size_t i = 0; i < result.x.size(); ++i) std::cout << (i ? ", " : "") << result.x[i];
+      std::cout << "]\n";
+    }
     return result;
   }
 

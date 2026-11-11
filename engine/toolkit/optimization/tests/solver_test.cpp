@@ -132,7 +132,8 @@ TEST_CASE("fmincon fields read into an OSQP QP") {
     std::ofstream out(path);
     out << R"({"H": [[2, 0], [0, 2]], "f": [-2, -1],
                "Aeq": [[1, 1]], "beq": [1],
-               "lb": [0, 0], "ub": [1, 1]})";
+               "lb": [0, 0], "ub": [1, 1],
+               "options": {"display": "off"}})";
   }
   opt::Workspace workspace;
   const auto result = workspace.solve(path.string(), true);
@@ -147,7 +148,8 @@ TEST_CASE("fmincon fields read into an LP") {
   const auto path = std::filesystem::temp_directory_path() / "paperboat_optimization_fmincon.lp.json";
   {
     std::ofstream out(path);
-    out << R"({"f": [-3, -2], "A": [[2, 1], [1, 2], [1, 1]], "b": [8, 8, 5], "lb": [0, 0]})";
+    out << R"({"f": [-3, -2], "A": [[2, 1], [1, 2], [1, 1]], "b": [8, 8, 5], "lb": [0, 0],
+               "options": {"display": "off"}})";
   }
   const opt::Problem problem = opt::read_problem(path.string(), false);
   REQUIRE(problem.variables == 2);
@@ -171,7 +173,7 @@ TEST_CASE("fmincon fields read into an NLP, with x(1) translated") {
       "Aeq": [[1, 1]], "beq": [2],
       "lb": [0, 0], "ub": [2, 2],
       "nonlcon": { "c": ["x(1)^2 + x(2)^2 - 2"] },
-      "options": { "tol": 1e-8, "max_iter": 400 }
+      "options": { "tol": 1e-8, "max_iter": 400, "display": "off" }
     })";
   }
   const opt::NlpProblem problem = opt::read_nlp_problem(path.string());
@@ -184,6 +186,7 @@ TEST_CASE("fmincon fields read into an NLP, with x(1) translated") {
   CHECK(problem.constraints[1].upper == 0.0);
   CHECK(problem.tol == 1e-8);
   CHECK(problem.max_iter == 400);
+  CHECK(problem.display == "off");
 
   opt::NlpWorkspace workspace;
   if (!opt::has_nlp()) {

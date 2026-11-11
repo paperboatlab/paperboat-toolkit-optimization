@@ -37,9 +37,13 @@ The nonlinear block takes the full fmincon form:
     "c":   ["x(1)^2 + x(2)^2 - 2"],   // c(x) <= 0
     "ceq": []                          // ceq(x) = 0
   },
-  "options": { "tol": 1e-8, "max_iter": 400 }
+  "options": { "tol": 1e-8, "max_iter": 400, "display": "iter" }
 }
 ```
+
+`options.display` follows MATLAB's `Display`: `"iter"` prints the solver's iteration table,
+`"final"` prints one summary line (objective, iterations, `x`), and `"off"` prints nothing.
+The same option works in the LP/QP files.
 
 Write `x(1)`, `x(2)` (or `x1`, `x2`) in expressions; the language is the same as the
 signal/generator blocks (`^`, `sin`, `exp`, …). The older solver-shaped forms

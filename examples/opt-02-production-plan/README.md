@@ -20,6 +20,8 @@ min fᵀx   with   A·x ≤ b,   lb ≤ x ≤ ub
 The two products earn 3 and 2 per unit; machine hours (2,1), (1,2) and labour (1,1) are capped at 8,
 8 and 5. The solution is `x = [3, 2]`, objective `-13` (a profit of 13).
 
+Set `"options": { "display": "iter" }` to print the solver steps (`final` for one line, `off` for silence).
+
 ## Run
 
 ```sh
