@@ -424,7 +424,7 @@ struct NlpWorkspace::Impl {
     app->Options()->SetStringValue("hessian_approximation", "limited-memory");
     std::string display = problem.display.empty() ? options.display : problem.display;
     for (char& c : display) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    app->Options()->SetStringValue("print_level", display == "iter" || display == "iter-detailed" ? "5" : "0");
+    app->Options()->SetIntegerValue("print_level", display == "iter" || display == "iter-detailed" ? 5 : 0);
     app->Options()->SetStringValue("sb", "yes");
     if (app->Initialize() != Ipopt::Solve_Succeeded) throw std::runtime_error("Ipopt failed to initialize");
 

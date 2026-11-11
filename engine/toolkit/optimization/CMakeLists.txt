@@ -15,7 +15,10 @@ else()
   set(OSQP_BUILD_STATIC_LIB ON CACHE BOOL "" FORCE)
   set(OSQP_BUILD_DEMO_EXE OFF CACHE BOOL "" FORCE)
   set(OSQP_BUILD_UNITTESTS OFF CACHE BOOL "" FORCE)
-  set(OSQP_ENABLE_PRINTING OFF CACHE BOOL "" FORCE)
+  # MATLAB-style `options.display = "iter"` prints the solver's table; OSQP gates it at
+  # compile time, and only verbose solves print (the display option sets verbose).
+  option(PAPERBOAT_OSQP_PRINTING "Compile OSQP's iteration printing" ON)
+  set(OSQP_ENABLE_PRINTING ${PAPERBOAT_OSQP_PRINTING} CACHE BOOL "" FORCE)
   FetchContent_Declare(osqp
     URL https://github.com/osqp/osqp/archive/refs/tags/v1.0.0.tar.gz
     URL_HASH SHA256=dd6a1c2e7e921485697d5e7cdeeb043c712526c395b3700601f51d472a7d8e48
