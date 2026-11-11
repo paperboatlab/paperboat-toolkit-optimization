@@ -2,21 +2,56 @@
 
 The optional optimization toolkit for [Paperboat](https://github.com/paperboatlab/paperboat).
 
-It provides the `optimization` package: quadratic and linear programs on the Flow page,
-solved by [OSQP](https://osqp.org) (Apache-2.0). The blocks are `qp` (min ½·xᵀPx + qᵀx) and
-`lp` (min cᵀx), both subject to `l ≤ Ax ≤ u`, with `x`, `objective`, `iterations` and
-`status` outputs. They are **Step** blocks: the path arrives at `in`, the block solves once,
-and the path leaves by `out`. The signal outputs carry the result to the rest of the flow.
-A problem is a JSON file on the block:
+It provides the `optimization` package: linear, quadratic and nonlinear programs on the Flow
+page, solved by [OSQP](https://osqp.org) (Apache-2.0) and, optionally,
+[Ipopt](https://coin-or.github.io/Ipopt/). The step blocks are `lp`, `qp` and `nlp`, each with
+`x`, `objective`, `iterations` and `status` outputs. The path arrives at `in`, the block solves
+once, and the path leaves by `out`; the signal outputs carry the result on.
 
-```json
-{ "P": [[1, 0], [0, 1]], "q": [-2, -1], "A": [[1, 1]], "l": [1], "u": [1] }
+Problems are JSON files on the block, in **MATLAB fmincon's field names**:
+
+```jsonc
+// QP:  min 1/2 x'Hx + f'x      LP:  min f'x
+{
+  "H": [[2, 0], [0, 2]],      // QP only; the upper triangle is used
+  "f": [-2, -1],
+  "A": [[2, 1], [1, 2]],      // A x <= b
+  "b": [8, 8],
+  "Aeq": [[1, 1]],            // Aeq x = beq
+  "beq": [1],
+  "lb": [0, 0],               // lb <= x <= ub; null is infinite
+  "ub": [1, 1],
+  "x0": [0.5, 0.5]            // accepted, used by the NLP solver
+}
 ```
 
-`P` uses its upper triangle, a `null` in `l` or `u` is an infinite bound, and `A`, `l` and
-`u` may be omitted. An LP uses `c` instead of `P`/`q`. A solve block is one step in a
-procedure (a design point, a plan, a schedule); a new arrival re-reads the file and solves
-again.
+The nonlinear block takes the full fmincon form:
+
+```jsonc
+{
+  "fun": "(x(1) - 1)^2 + (x(2) - 2)^2",
+  "x0": [0.5, 1.5],
+  "Aeq": [[1, 1]], "beq": [2],
+  "lb": [0, 0], "ub": [2, 2],
+  "nonlcon": {
+    "c":   ["x(1)^2 + x(2)^2 - 2"],   // c(x) <= 0
+    "ceq": []                          // ceq(x) = 0
+  },
+  "options": { "tol": 1e-8, "max_iter": 400, "display": "iter" }
+}
+```
+
+`options.display` follows MATLAB's `Display`: `"iter"` prints the solver's iteration table,
+`"final"` prints one summary line (objective, iterations, `x`), and `"off"` prints nothing.
+The same option works in the LP/QP files.
+
+Write `x(1)`, `x(2)` (or `x1`, `x2`) in expressions; the language is the same as the
+signal/generator blocks (`^`, `sin`, `exp`, …). The older solver-shaped forms
+(`P`/`q`/`A`/`l`/`u`, `c`, and `variables`/`objective`/`constraints`) are still read.
+
+A solve block is one step in a procedure (a design point, a plan, a schedule); a new arrival
+re-reads the file and solves again. Three examples ship with the toolkit, one per type:
+`opt-01-beam-sizing` (QP), `opt-02-production-plan` (LP) and `opt-03-nonlinear-design` (NLP).
 
 The same solver is a C++ workspace for a per-step controller. It keeps the OSQP
 factorization when the dimensions and sparsity are unchanged, updates the values, and

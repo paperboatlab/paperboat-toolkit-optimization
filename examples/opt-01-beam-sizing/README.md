@@ -8,15 +8,28 @@ Start → Solve QP → Stop
            └→ Graph and Display of x
 ```
 
-`beam.qp.json` is
+`beam.qp.json` uses the fmincon field names:
 
 ```
-min ½·xᵀPx + qᵀx   with   x₁ + x₂ = 1
+min ½·xᵀHx + fᵀx   with   Aeq·x = beq,  lb ≤ x ≤ ub
+```
+
+```json
+{
+  "H": [[2, 0], [0, 2]],
+  "f": [-2, -1],
+  "Aeq": [[1, 1]],
+  "beq": [1],
+  "lb": [0, 0],
+  "ub": [1, 1]
+}
 ```
 
 The solution is `x = [0.75, 0.25]`. The `qp` block is a Step block: the path arrives at
 `in`, the block solves once, and the path leaves by `out`. The graph and display read the
 `x` signal output.
+
+Set `"options": { "display": "iter" }` to print the solver steps (`final` for one line, `off` for silence).
 
 ## Run
 
