@@ -55,7 +55,8 @@ std::string translate_x(std::string text, std::size_t count, const std::string& 
   std::string out;
   out.reserve(text.size());
   for (std::size_t i = 0; i < text.size();) {
-    if ((text[i] == 'x' || text[i] == 'X') && i + 1 < text.size()) {
+    const bool standalone = i == 0 || !(std::isalnum(static_cast<unsigned char>(text[i - 1])) || text[i - 1] == '_');
+    if (standalone && (text[i] == 'x' || text[i] == 'X') && i + 1 < text.size()) {
       std::size_t j = i + 1;
       while (j < text.size() && std::isspace(static_cast<unsigned char>(text[j]))) ++j;
       const char open = j < text.size() ? text[j] : '\0';

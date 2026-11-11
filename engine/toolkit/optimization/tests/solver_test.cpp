@@ -199,3 +199,14 @@ TEST_CASE("fmincon fields read into an NLP, with x(1) translated") {
   CHECK(std::abs(result.objective - 1.0) < 1e-4);
   std::filesystem::remove(path);
 }
+
+TEST_CASE("fmincon x(1) translation leaves max(...) alone") {
+  const auto path = std::filesystem::temp_directory_path() / "paperboat_optimization_fmincon.names.json";
+  {
+    std::ofstream out(path);
+    out << R"json({"fun": "max(x(1), 0) + x(2)", "x0": [0, 0]})json";
+  }
+  const opt::NlpProblem problem = opt::read_nlp_problem(path.string());
+  CHECK(problem.objective == "max(x1, 0) + x2");
+  std::filesystem::remove(path);
+}
