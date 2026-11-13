@@ -15,11 +15,16 @@ if(NOT PAPERBOAT_ENGINE_DIR)
     endif()
   endforeach()
 endif()
-if(NOT PAPERBOAT_ENGINE_DIR)
-  message(FATAL_ERROR "No Paperboat engine found: set PAPERBOAT_ENGINE_DIR")
+if(PAPERBOAT_ENGINE_DIR)
+  set(PAPERBOAT_ENGINE_DIR "${PAPERBOAT_ENGINE_DIR}" CACHE PATH "Paperboat engine sources")
+  add_subdirectory(${PAPERBOAT_ENGINE_DIR} paperboat EXCLUDE_FROM_ALL)
+else()
+  # An installed paperboat: its SDK, with the toolkits `paperboat toolkit install` built as
+  # paperboat::toolkit_<name> (paperboat#354).
+  find_package(Paperboat 0.1 CONFIG REQUIRED)
+  add_library(paperboat_warnings INTERFACE)
+  target_link_libraries(paperboat_warnings INTERFACE paperboat::warnings)
 endif()
-set(PAPERBOAT_ENGINE_DIR "${PAPERBOAT_ENGINE_DIR}" CACHE PATH "Paperboat engine sources")
-add_subdirectory(${PAPERBOAT_ENGINE_DIR} paperboat EXCLUDE_FROM_ALL)
 
 # The toolkit: the engine's installed copy, or this repository's folder.
 if(NOT TARGET paperboat::toolkit_optimization)
