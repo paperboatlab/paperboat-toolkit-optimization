@@ -26,6 +26,16 @@ jobs:
         run: cmake --build paperboat/engine/build
       - name: Test
         run: ctest --test-dir paperboat/engine/build --output-on-failure
+      # The toolkit's docs site, as the org site (paperboatlab.github.io) builds it: its pages, and a
+      # page per block from the catalog this build dumps. Warnings are errors.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Docs
+        run: |
+          pip install sphinx shibuya
+          python3 paperboat/docs/site/build.py engine/toolkit/optimization/docs "$RUNNER_TEMP/docs" --name toolkits/optimization \
+            --engine paperboat/engine/build/tools/paperboat-catalog --blocks engine/toolkit/optimization/src/optimization
 
   validate:
     name: Validate toolkit files
