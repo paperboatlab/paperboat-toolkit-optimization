@@ -20,3 +20,8 @@ paperboat toolkit install optimization --repo https://github.com/paperboatlab/pa
 
 The build job checks out `paperboatlab/paperboat` and runs the engine's tests with this
 toolkit overlaid; the validate job checks `toolkit.toml`; the docs step builds the docs site as the org site does.
+
+## Licence
+
+GNU General Public License version 3 (see [LICENSE](LICENSE)). Installed by the user and never
+bundled into a Paperboat release artifact.
