@@ -2,7 +2,7 @@
 format = 0
 name = "opt-02-production-plan"
 version = "0.1.0"
-engine = ">=0.1"
+engine = ">=0.2"
 language = "cpp"
 run = "build/paperboat-opt-plan"
 port = 8783
