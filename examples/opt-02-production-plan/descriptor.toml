@@ -5,7 +5,7 @@
 #              └→ Graph and Display of x
 domain = "opt-plan"
 
-import = ["optimization", "step", "dashboard"]
+import = ["optimization", "step", "board"]
 
 # No station bodies: open on the Flow graph.
 [station]
@@ -27,7 +27,7 @@ edges = [
   { from = ["lp-1", "x"], to = ["display-1", "in"] },
 ]
 
-[dashboard]
+[board]
 columns = 4
 instruments = [
   { block = "graph-1", size = "normal", at = [0, 0] },

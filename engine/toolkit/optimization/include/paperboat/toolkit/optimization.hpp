@@ -22,7 +22,7 @@
 // OSQP.
 //
 // Optional toolkit: the engine discovers this folder from its toolkit.toml when it is
-// installed at engine/toolkit/optimization. A backend registers it next to the builtins and
+// installed at engine/toolkit/optimization. A station registers it next to the builtins and
 // imports "optimization" in its descriptor:
 //
 //   tk::Registry r = tk::builtins();

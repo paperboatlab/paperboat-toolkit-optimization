@@ -6,15 +6,15 @@ Install
    paperboat toolkit install optimization --repo https://github.com/paperboatlab/paperboat-toolkit-optimization.git
 
 It finds a system OSQP (``find_package(osqp)``) or fetches OSQP v1.0.0; ``nlp`` needs a build with
-Ipopt. A C++ backend registers it next to the builtins:
+Ipopt. A C++ station registers it next to the builtins:
 
 .. code-block:: cpp
 
    tk::Registry r = tk::builtins();
    tk::optimization::register_optimization(r);
 
-and imports ``"optimization"`` in its ``descriptor.toml``. A backend that lists the toolkit in its
-``backend.toml`` (``toolkits = ["optimization"]``) is checked for it by ``paperboat check``.
+and imports ``"optimization"`` in its ``descriptor.toml``. A station that lists the toolkit in its
+``station.toml`` (``toolkits = ["optimization"]``) is checked for it by ``paperboat check``.
 
 To work on the toolkit itself, overlay it onto a Paperboat checkout so it sits at
 ``engine/toolkit/optimization/`` and build the engine as usual:
