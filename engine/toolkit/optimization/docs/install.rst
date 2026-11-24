@@ -3,7 +3,7 @@ Install
 
 .. code-block:: sh
 
-   paperboat toolkit install optimization --repo https://github.com/paperboatlab/paperboat-toolkit-optimization.git
+   paperboat toolkit install optimization --repo https://github.com/paperboatlab/simplicial-toolkit-optimization.git
 
 It finds a system OSQP (``find_package(osqp)``) or fetches OSQP v1.0.0; ``nlp`` needs a build with
 Ipopt. A C++ station registers it next to the builtins:

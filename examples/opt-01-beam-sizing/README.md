@@ -34,7 +34,7 @@ Set `"options": { "display": "iter" }` to print the solver steps (`final` for on
 ## Run
 
 ```sh
-paperboat toolkit install optimization --repo https://github.com/paperboatlab/paperboat-toolkit-optimization.git
+paperboat toolkit install optimization --repo https://github.com/paperboatlab/simplicial-toolkit-optimization.git
 paperboat run opt-01-beam-sizing
 ```
 

@@ -1,4 +1,4 @@
-# paperboat-toolkit-optimization
+# simplicial-toolkit-optimization
 
 The optional optimization toolkit for [Paperboat](https://github.com/paperboatlab/paperboat): linear,
 quadratic and nonlinear programs on the Flow page (`lp`, `qp`, `nlp`), solved by
@@ -13,7 +13,7 @@ params come from the catalog, so write only what the catalog can't say.
 ## Install
 
 ```sh
-paperboat toolkit install optimization --repo https://github.com/paperboatlab/paperboat-toolkit-optimization.git
+paperboat toolkit install optimization --repo https://github.com/paperboatlab/simplicial-toolkit-optimization.git
 ```
 
 ## CI
