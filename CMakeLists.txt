@@ -1,4 +1,4 @@
-# paperboat-toolkit-optimization: the optional optimization toolkit for Paperboat.
+# simplicial-toolkit-optimization: the optional optimization toolkit for Paperboat.
 #
 # Builds paperboat::toolkit_optimization. Two modes:
 #   1. In-tree: drop/copy this folder into a paperboat checkout at

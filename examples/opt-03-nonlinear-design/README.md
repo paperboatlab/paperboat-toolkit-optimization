@@ -33,7 +33,7 @@ Set `"options": { "display": "iter" }` to print the solver steps (`final` for on
 
 ```sh
 sudo apt install coinor-libipopt-dev   # the NLP block needs Ipopt
-paperboat toolkit install optimization --repo https://github.com/paperboatlab/paperboat-toolkit-optimization.git
+paperboat toolkit install optimization --repo https://github.com/paperboatlab/simplicial-toolkit-optimization.git
 paperboat run opt-03-nonlinear-design
 ```
 
